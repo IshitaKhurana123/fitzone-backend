@@ -30,11 +30,6 @@ const MemberSchema = new mongoose.Schema({
         enum: ['basic', 'premium', 'vip'],
         required: true
     },
-    status: {
-        type: String,
-        enum: ['active', 'inactive'],
-        default: 'active'
-    },
     paymentStatus: {
         type: String,
         enum: ['Paid', 'Unpaid'],
@@ -56,4 +51,3 @@ const MemberSchema = new mongoose.Schema({
 });
 
 module.exports = mongoose.model('Member', MemberSchema);
-
