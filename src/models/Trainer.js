@@ -27,16 +27,6 @@ const TrainerSchema = new mongoose.Schema({
         type: String,
         required: true
     },
-    status: {
-        type: String,
-        enum: ['active', 'inactive'],
-        default: 'active'
-    },
-    salaryStatus: {
-        type: String,
-        enum: ['Paid', 'Unpaid'],
-        default: 'Unpaid'
-    },
     attendance: {
         type: Number,
         default: 0
@@ -52,4 +42,3 @@ const TrainerSchema = new mongoose.Schema({
 });
 
 module.exports = mongoose.model('Trainer', TrainerSchema);
-
