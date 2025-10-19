@@ -27,10 +27,12 @@ const TrainerSchema = new mongoose.Schema({
         type: String,
         required: true
     },
-    attendance: {
-        type: Number,
-        default: 0
-    },
+    // --- UPDATED ---
+    // Changed from 'Number' to an array of 'Date' objects
+    attendance: [{
+        type: Date
+    }],
+    // ---------------
     assignedMembers: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Member' // Creates a reference to the Member model

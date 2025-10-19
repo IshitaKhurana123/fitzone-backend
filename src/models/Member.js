@@ -35,10 +35,12 @@ const MemberSchema = new mongoose.Schema({
         enum: ['Paid', 'Unpaid'],
         default: 'Unpaid'
     },
-    attendance: {
-        type: Number,
-        default: 0
-    },
+    // --- UPDATED ---
+    // Changed from 'Number' to an array of 'Date' objects
+    attendance: [{
+        type: Date
+    }],
+    // ---------------
     assignedTrainer: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Trainer', // This creates a reference to the Trainer model
