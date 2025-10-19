@@ -1,92 +1,106 @@
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
 
-// Import all the user models
+// Import your MongoDB models
 const Admin = require('../models/Admin');
 const Member = require('../models/Member');
 const Trainer = require('../models/Trainer');
 
-// The main login route
+// POST /api/auth/login
+// This route now checks all 3 user collections
 router.post('/login', async (req, res) => {
-    const { username, password, role } = req.body;
-
-    // Basic validation
-    if (!username || !password || !role) {
-        return res.status(400).json({ message: 'Username, password, and role are required.' });
+    const { username, password } = req.body;
+    if (!username || !password) {
+        return res.status(400).json({ success: false, message: 'Username and password required' });
     }
 
     try {
-        let user;
-        let UserModel;
-
-        // Determine which model to use based on the selected role
-        switch (role) {
-            case 'admin':
-                UserModel = Admin;
-                break;
-            case 'member':
-                UserModel = Member;
-                break;
-            case 'trainer':
-                UserModel = Trainer;
-                break;
-            default:
-                return res.status(400).json({ message: 'Invalid role specified.' });
+        // 1. Check if it's an Admin
+        const admin = await Admin.findOne({ username });
+        if (admin) {
+            const match = bcrypt.compareSync(password, admin.password);
+            if (match) {
+                // Successful admin login
+                // Convert to object and remove password before sending
+                const user = admin.toObject();
+                delete user.password;
+                return res.json({ success: true, role: 'admin', user: user });
+            }
         }
 
-        // Find the user by username in the correct collection
-        // We use .select('+password') because the password field is hidden by default in the model
-        if (role === 'member') {
-            user = await UserModel.findOne({ username }).populate('assignedTrainer', 'name specialization phone');
-        } else if (role === 'trainer') {
-             user = await UserModel.findOne({ username }).populate('assignedMembers', 'name plan attendance');
-        } else {
-             user = await UserModel.findOne({ username });
-        }
-        
-
-        if (!user) {
-            return res.status(404).json({ message: 'User not found.' });
+        // 2. Check if it's a Trainer
+        const trainer = await Trainer.findOne({ username });
+        if (trainer) {
+            const match = bcrypt.compareSync(password, trainer.password);
+            if (match) {
+                // Successful trainer login
+                const user = trainer.toObject();
+                delete user.password;
+                return res.json({ success: true, role: 'trainer', user: user });
+            }
         }
 
-        // Compare the provided password with the hashed password in the database
-        const isMatch = await bcrypt.compare(password, user.password);
-        if (!isMatch) {
-            return res.status(400).json({ message: 'Invalid credentials.' });
+        // 3. Check if it's a Member
+        const member = await Member.findOne({ username });
+        if (member) {
+            const match = bcrypt.compareSync(password, member.password);
+            if (match) {
+                // Successful member login
+                const user = member.toObject();
+                delete user.password;
+                return res.json({ success: true, role: 'member', user: user });
+            }
         }
 
-        // If credentials are correct, create a JWT payload
-        const payload = {
-            id: user._id,
-            role: role
-        };
+        // 4. If no user was found in any collection
+        return res.status(401).json({ success: false, message: 'Invalid credentials' });
 
-        // Sign the token with the secret key, making it valid for 1 day
-        const token = jwt.sign(
-            payload,
-            process.env.JWT_SECRET,
-            { expiresIn: '1d' }
-        );
-        
-        // Prepare user object to be sent back, removing the password
-        const userResponse = user.toObject();
-        delete userResponse.password;
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+});
 
-        // Send back the token and user info
-        res.json({
-            message: 'Logged in successfully!',
-            token,
-            user: userResponse,
-            role
+// POST /api/auth/register (Registers a new MEMBER)
+// I updated this to work with your Member model
+router.post('/register', async (req, res) => {
+    // Member model requires more fields
+    const { name, username, password, email, phone, plan } = req.body;
+    
+    if (!username || !password || !name || !email || !phone || !plan) {
+        return res.status(400).json({ message: 'All fields are required: name, username, password, email, phone, plan' });
+    }
+
+    try {
+        // Check if username or email already exists
+        const existingUser = await Member.findOne({ $or: [{ username }, { email }] });
+        if (existingUser) {
+            return res.status(400).json({ message: 'Username or email already exists' });
+        }
+
+        // Hash the password
+        const hashedPassword = bcrypt.hashSync(password, 10);
+
+        // Create new member
+        const newMember = new Member({
+            name,
+            username,
+            password: hashedPassword,
+            email,
+            phone,
+            plan,
+            joinDate: new Date() // Set join date on creation
         });
 
-    } catch (err) {
-        console.error(err.message);
-        res.status(500).send('Server Error');
+        await newMember.save();
+
+        res.status(201).json({ message: 'Member registered successfully' });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server error' });
     }
 });
 
 module.exports = router;
-
